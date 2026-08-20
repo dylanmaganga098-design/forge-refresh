@@ -1,5 +1,17 @@
 import { eatDay } from "../time";
-import { at, consume, fail, isAtr, isConsumed, pass, requireAtr, reliable, valid } from "./util";
+import {
+  at,
+  consume,
+  fail,
+  isAtr,
+  isConsumed,
+  pass,
+  requireAtr,
+  reliable,
+  targetAbove,
+  targetBelow,
+  valid,
+} from "./util";
 import type { StrategyCheck } from "../types";
 
 const ID = "asian_london";
