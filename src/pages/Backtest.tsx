@@ -367,7 +367,32 @@ export default function Backtest() {
                 onChange={(event) => setToDate(event.target.value)}
               />
             </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-3">
+              <Label className="text-[11px] uppercase tracking-wide">AI stage per day</Label>
+              <Select
+                value={aiStage}
+                onValueChange={(value) => setAiStage(value as AiStage)}
+                disabled={isRunning}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["verifier", "debate", "both", "off"] as AiStage[]).map((stage) => (
+                    <SelectItem key={stage} value={stage}>
+                      {AI_STAGE_LABELS[stage]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                The verifier runs on every day that produced PASS setups and its verdict is written
+                into that day&apos;s report. The debate is much slower — it streams a full Gemini ↔
+                GPT round per day.
+              </p>
+            </div>
           </div>
+
 
           <p className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground">
             {days.length === 0
