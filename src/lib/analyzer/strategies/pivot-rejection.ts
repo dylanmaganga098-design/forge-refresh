@@ -50,32 +50,34 @@ export const pivotRejection: StrategyCheck = {
         if (!(upper > WICK_BODY_RATIO * body)) {
           return fail(`upper wick:body below ${WICK_BODY_RATIO}:1 at ${level.name}`);
         }
-        const target = levels
-          .filter((l) => l.value < c.close! - tolerance)
-          .sort((a, b) => b.value - a.value)[0];
-        if (!target) return fail(`no lower pivot level to target from ${level.name}`);
+        // TP rule: nearest opposing swing below the entry, not the next pivot level.
+        const tp = targetBelow(ctx, i, c.close!);
+        if (tp === undefined || !(tp < c.close!)) {
+          return fail(`no opposing swing below the rejection close at ${level.name}`);
+        }
         return pass(
           `rejected ${level.name} at ${level.value.toFixed(3)} (prior EAT day ${prior.day})`,
           "short",
           c.close!,
           c.high! + 0.1 * atrValue,
-          target.value,
+          tp,
         );
       }
       if (tagLow) {
         if (!(lower > WICK_BODY_RATIO * body)) {
           return fail(`lower wick:body below ${WICK_BODY_RATIO}:1 at ${level.name}`);
         }
-        const target = levels
-          .filter((l) => l.value > c.close! + tolerance)
-          .sort((a, b) => a.value - b.value)[0];
-        if (!target) return fail(`no higher pivot level to target from ${level.name}`);
+        // TP rule: nearest opposing swing above the entry, not the next pivot level.
+        const tp = targetAbove(ctx, i, c.close!);
+        if (tp === undefined || !(tp > c.close!)) {
+          return fail(`no opposing swing above the rejection close at ${level.name}`);
+        }
         return pass(
           `rejected ${level.name} at ${level.value.toFixed(3)} (prior EAT day ${prior.day})`,
           "long",
           c.close!,
           c.low! - 0.1 * atrValue,
-          target.value,
+          tp,
         );
       }
     }
