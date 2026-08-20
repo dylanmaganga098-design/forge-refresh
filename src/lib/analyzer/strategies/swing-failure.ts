@@ -76,8 +76,10 @@ export const swingFailure: StrategyCheck = {
       if (!(c.close! > c.open!)) return fail("rejection candle is not bullish-bodied");
       const entry = c.close!;
       const sl = c.low! - 0.1 * atrValue;
-      const tp = targetAbove(ctx, i, entry) ?? entry + 3 * atrValue;
-      if (!(tp > entry)) return fail("no structure target above the SFP close");
+      // TP rule: nearest opposing swing beyond the entry. No synthetic fallback.
+      const tp = targetAbove(ctx, i, entry);
+      if (tp === undefined || !(tp > entry))
+        return fail("no opposing swing above the SFP close");
       consume(ctx, ID, levelKey("low", pivot.price));
       return pass(
         `single-bar swing failure at untested low ${pivot.price.toFixed(3)}`,
