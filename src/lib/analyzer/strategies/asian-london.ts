@@ -80,8 +80,10 @@ export const asianLondon: StrategyCheck = {
       consume(ctx, ID, downKey);
       const entry = c.close!;
       const sl = extremeLow - 0.1 * atrValue;
-      const tp = range.high;
-      if (!(tp > entry)) return fail("asian high is not above the reclaim close");
+      // TP rule: nearest opposing swing above the entry, not the asian range high.
+      const tp = targetAbove(ctx, i, entry);
+      if (tp === undefined || !(tp > entry))
+        return fail("no opposing swing above the reclaim close");
       return pass(
         `asian low ${range.low.toFixed(3)} swept in london and reclaimed — bullish bias`,
         "long",
