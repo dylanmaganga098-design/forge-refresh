@@ -1,5 +1,15 @@
 import { classicPivots, priorDay } from "../daily";
-import { fail, geometry, isAtr, pass, requireAtr, reliable, valid } from "./util";
+import {
+  fail,
+  geometry,
+  isAtr,
+  pass,
+  requireAtr,
+  reliable,
+  targetAbove,
+  targetBelow,
+  valid,
+} from "./util";
 import type { StrategyCheck } from "../types";
 
 const TOLERANCE_ATR = 0.1;
