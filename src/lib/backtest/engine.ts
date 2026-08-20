@@ -258,7 +258,9 @@ export function buildDayReport(input: DayReportInput): string {
   lines.push(`day: ${day}`);
   lines.push(`time_checkpoint (EAT): ${checkpoint}`);
   lines.push(`csv_window: ${windowStart} 00:00 -> ${day} ${checkpoint}`);
-  lines.push(`analysis_mode: local structure engine only (no AI/Gemini call)`);
+  lines.push(
+    `analysis_mode: local structure engine (AI verifier/debate sections, when run, are appended below)`,
+  );
   lines.push(`generated_at: ${new Date().toISOString()}`);
   lines.push("");
 
