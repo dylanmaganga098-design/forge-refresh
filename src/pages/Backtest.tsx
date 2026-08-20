@@ -77,9 +77,12 @@ export default function Backtest() {
   const [logs, setLogs] = useState<string[]>([]);
   const [state, setState] = useState<BacktestState>(() => emptyState("XAU/USD"));
   const [zip, setZip] = useState<{ name: string; url: string } | null>(null);
+  const [aiStage, setAiStage] = useState<AiStage>("verifier");
 
+  const runVerifier = useServerFn(verifySetup);
   const stopRef = useRef(false);
   const keyIndexRef = useRef(0);
+
 
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev.slice(-400), `${new Date().toLocaleTimeString()}  ${msg}`]);
