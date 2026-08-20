@@ -118,7 +118,9 @@ export default function Backtest() {
     setState(working);
 
     addLog(`Auto-Backtest ${symbol} | ${days[0]} → ${days[days.length - 1]} (${days.length} day(s))`);
-    addLog("Each day is analysed on its own one-month window of 30M candles — no AI call.");
+    addLog(
+      `Each day is analysed on its own one-month window of 30M candles — AI stage: ${AI_STAGE_LABELS[aiStage]}.`,
+    );
 
     const collected: { name: string; content: string }[] = [];
 
