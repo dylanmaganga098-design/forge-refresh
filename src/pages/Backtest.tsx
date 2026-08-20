@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import JSZip from "jszip";
 import { ArrowLeft, Brain, Download, History, Loader2, Play, Square } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,8 @@ import {
 import { STRATEGIES } from "@/lib/analyzer/strategies";
 import { AVAILABLE_SYMBOLS, TWELVE_DATA_API_KEYS } from "@/lib/market-data";
 import { buildOhlcCsv } from "@/lib/ohlc-generator";
+import { verifySetup } from "@/lib/verifier.functions";
+import { appendAiSections, runDebate, type AiStage } from "@/lib/backtest/ai";
 import {
   analyseDay,
   applyTriggers,
@@ -28,6 +31,14 @@ import {
   type BacktestState,
   type DayTrigger,
 } from "@/lib/backtest/engine";
+
+const AI_STAGE_LABELS: Record<AiStage, string> = {
+  verifier: "Verifier / picker (default)",
+  debate: "Gemini ↔ GPT debate",
+  both: "Verifier + debate",
+  off: "Local engine only",
+};
+
 
 function inIframe(): boolean {
   try {
