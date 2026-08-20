@@ -140,6 +140,7 @@ export default function Backtest() {
       let analyzedRows = 0;
       let invalidRows = 0;
       let lastRowDatetime = "-";
+      let dayCsv: string | null = null;
 
       try {
         const csv = await buildOhlcCsv({
