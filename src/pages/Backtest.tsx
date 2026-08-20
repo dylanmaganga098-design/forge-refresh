@@ -159,6 +159,7 @@ export default function Backtest() {
         if (!csv) {
           skipReason = "no usable OHLC data returned for this window (market closed or bad data)";
         } else {
+          dayCsv = csv;
           const outcome = analyseDay(csv, day);
           if (!outcome.ok) {
             skipReason = `analysis rejected the data: ${outcome.error}`;
