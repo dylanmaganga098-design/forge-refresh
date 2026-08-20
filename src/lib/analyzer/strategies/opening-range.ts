@@ -1,5 +1,16 @@
 import { openingRangeFor } from "../daily";
-import { at, closedBeyond, fail, isAtr, pass, requireAtr, reliable, valid } from "./util";
+import {
+  at,
+  closedBeyond,
+  fail,
+  isAtr,
+  pass,
+  requireAtr,
+  reliable,
+  targetAbove,
+  targetBelow,
+  valid,
+} from "./util";
 import type { StrategyCheck } from "../types";
 
 const RETEST_TOLERANCE_ATR = 0.15;
