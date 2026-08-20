@@ -63,11 +63,10 @@ export const fvgFill: StrategyCheck = {
       }
       const entry = c.close!;
       const sl = gapUp ? bottom - 0.1 * atrValue : top + 0.1 * atrValue;
-      const tp =
-        (gapUp ? targetAbove(ctx, i, entry) : targetBelow(ctx, i, entry)) ??
-        (gapUp ? entry + 3 * size : entry - 3 * size);
-      if (gapUp ? !(tp > entry) : !(tp < entry))
-        return fail("no structure target beyond the entry");
+      // TP rule: nearest opposing swing beyond the entry. No synthetic fallback.
+      const tp = gapUp ? targetAbove(ctx, i, entry) : targetBelow(ctx, i, entry);
+      if (tp === undefined || (gapUp ? !(tp > entry) : !(tp < entry)))
+        return fail("no opposing swing beyond the entry");
       consume(ctx, ID, key);
       return pass(
         `filled ${gapUp ? "bullish" : "bearish"} fair value gap from ${d.datetime}`,
