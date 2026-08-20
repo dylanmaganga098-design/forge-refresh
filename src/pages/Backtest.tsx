@@ -188,21 +188,70 @@ export default function Backtest() {
       setState({ ...working, stats: { ...working.stats } });
       setProgress({ done: i + 1, total: days.length });
 
-      collected.push({
-        name: dayFileName(day),
-        content: buildDayReport({
-          symbol,
-          day,
-          checkpoint: "23:59",
-          windowStart,
-          state: working,
-          triggers,
-          skipReason,
-          analyzedRows,
-          invalidRows,
-          lastRowDatetime,
-        }),
+      let report = buildDayReport({
+        symbol,
+        day,
+        checkpoint: "23:59",
+        windowStart,
+        state: working,
+        triggers,
+        skipReason,
+        analyzedRows,
+        invalidRows,
+        lastRowDatetime,
       });
+
+      // AI stage: the V2 verifier and/or the full Gemini <-> GPT debate, on the
+      // same day report + CSV window the local engine just analysed.
+      const aiSections: { title: string; body: string }[] = [];
+      const canRunAi = aiStage !== "off" && !skipReason && dayCsv !== null && triggers.length > 0;
+      if (aiStage !== "off" && !canRunAi) {
+        addLog(`${day}: AI stage skipped — no PASS setups or no usable data for this day.`);
+      }
+
+      if (canRunAi && (aiStage === "verifier" || aiStage === "both")) {
+        try {
+          addLog(`${day}: running V2 verifier / picker…`);
+          const outcome = await runVerifier({ data: { scoutData: report, ohlcCsv: dayCsv ?? "" } });
+          aiSections.push({
+            title: `V2 VERIFIER VERDICT (${outcome.provider} · ${outcome.model})`,
+            body: outcome.warnings.length
+              ? `${outcome.verdict}\n\nwarnings: ${outcome.warnings.join(" | ")}`
+              : outcome.verdict,
+          });
+          addLog(`${day}: verifier done via ${outcome.provider} · ${outcome.model}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          aiSections.push({ title: "V2 VERIFIER VERDICT", body: `FAILED: ${message}` });
+          addLog(`${day}: verifier failed — ${message}`);
+        }
+      }
+
+      if (canRunAi && (aiStage === "debate" || aiStage === "both")) {
+        try {
+          addLog(`${day}: running Gemini ↔ GPT debate…`);
+          const debate = await runDebate({
+            symbol,
+            range: `${windowStart} → ${day}`,
+            ohlcCsv: dayCsv ?? "",
+            summaryFields: report,
+            onLog: (message) => addLog(`${day}: ${message}`),
+          });
+          aiSections.push({
+            title: `GEMINI ↔ GPT DEBATE (${debate.status}${debate.agreed ? " · agreed" : ""})`,
+            body: `${debate.summary}\n\n--- FULL TRANSCRIPT ---\n${debate.transcript}`,
+          });
+          addLog(`${day}: debate finished — ${debate.status}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          aiSections.push({ title: "GEMINI ↔ GPT DEBATE", body: `FAILED: ${message}` });
+          addLog(`${day}: debate failed — ${message}`);
+        }
+      }
+
+      report = appendAiSections(report, aiSections);
+
+      collected.push({ name: dayFileName(day), content: report });
     }
 
     setCurrentDay(null);
