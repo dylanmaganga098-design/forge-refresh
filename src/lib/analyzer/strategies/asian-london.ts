@@ -1,5 +1,17 @@
 import { eatDay } from "../time";
-import { at, consume, fail, isAtr, isConsumed, pass, requireAtr, reliable, valid } from "./util";
+import {
+  at,
+  consume,
+  fail,
+  isAtr,
+  isConsumed,
+  pass,
+  requireAtr,
+  reliable,
+  targetAbove,
+  targetBelow,
+  valid,
+} from "./util";
 import type { StrategyCheck } from "../types";
 
 const ID = "asian_london";
@@ -51,8 +63,10 @@ export const asianLondon: StrategyCheck = {
       consume(ctx, ID, upKey);
       const entry = c.close!;
       const sl = extremeHigh + 0.1 * atrValue;
-      const tp = range.low;
-      if (!(tp < entry)) return fail("asian low is not below the reclaim close");
+      // TP rule: nearest opposing swing below the entry, not the asian range low.
+      const tp = targetBelow(ctx, i, entry);
+      if (tp === undefined || !(tp < entry))
+        return fail("no opposing swing below the reclaim close");
       return pass(
         `asian high ${range.high.toFixed(3)} swept in london and reclaimed — bearish bias`,
         "short",
@@ -66,8 +80,10 @@ export const asianLondon: StrategyCheck = {
       consume(ctx, ID, downKey);
       const entry = c.close!;
       const sl = extremeLow - 0.1 * atrValue;
-      const tp = range.high;
-      if (!(tp > entry)) return fail("asian high is not above the reclaim close");
+      // TP rule: nearest opposing swing above the entry, not the asian range high.
+      const tp = targetAbove(ctx, i, entry);
+      if (tp === undefined || !(tp > entry))
+        return fail("no opposing swing above the reclaim close");
       return pass(
         `asian low ${range.low.toFixed(3)} swept in london and reclaimed — bullish bias`,
         "long",

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import JSZip from "jszip";
 import { ArrowLeft, Brain, Download, History, Loader2, Play, Square } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,8 @@ import {
 import { STRATEGIES } from "@/lib/analyzer/strategies";
 import { AVAILABLE_SYMBOLS, TWELVE_DATA_API_KEYS } from "@/lib/market-data";
 import { buildOhlcCsv } from "@/lib/ohlc-generator";
+import { verifySetup } from "@/lib/verifier.functions";
+import { appendAiSections, runDebate, type AiStage } from "@/lib/backtest/ai";
 import {
   analyseDay,
   applyTriggers,
@@ -28,6 +31,13 @@ import {
   type BacktestState,
   type DayTrigger,
 } from "@/lib/backtest/engine";
+
+const AI_STAGE_LABELS: Record<AiStage, string> = {
+  verifier: "Verifier / picker (default)",
+  debate: "Gemini ↔ GPT debate",
+  both: "Verifier + debate",
+  off: "Local engine only",
+};
 
 function inIframe(): boolean {
   try {
@@ -66,7 +76,9 @@ export default function Backtest() {
   const [logs, setLogs] = useState<string[]>([]);
   const [state, setState] = useState<BacktestState>(() => emptyState("XAU/USD"));
   const [zip, setZip] = useState<{ name: string; url: string } | null>(null);
+  const [aiStage, setAiStage] = useState<AiStage>("verifier");
 
+  const runVerifier = useServerFn(verifySetup);
   const stopRef = useRef(false);
   const keyIndexRef = useRef(0);
 
@@ -103,8 +115,12 @@ export default function Backtest() {
     const working: BacktestState = emptyState(symbol);
     setState(working);
 
-    addLog(`Auto-Backtest ${symbol} | ${days[0]} → ${days[days.length - 1]} (${days.length} day(s))`);
-    addLog("Each day is analysed on its own one-month window of 30M candles — no AI call.");
+    addLog(
+      `Auto-Backtest ${symbol} | ${days[0]} → ${days[days.length - 1]} (${days.length} day(s))`,
+    );
+    addLog(
+      `Each day is analysed on its own one-month window of 30M candles — AI stage: ${AI_STAGE_LABELS[aiStage]}.`,
+    );
 
     const collected: { name: string; content: string }[] = [];
 
@@ -124,6 +140,7 @@ export default function Backtest() {
       let analyzedRows = 0;
       let invalidRows = 0;
       let lastRowDatetime = "-";
+      let dayCsv: string | null = null;
 
       try {
         const csv = await buildOhlcCsv({
@@ -142,6 +159,7 @@ export default function Backtest() {
         if (!csv) {
           skipReason = "no usable OHLC data returned for this window (market closed or bad data)";
         } else {
+          dayCsv = csv;
           const outcome = analyseDay(csv, day);
           if (!outcome.ok) {
             skipReason = `analysis rejected the data: ${outcome.error}`;
@@ -170,21 +188,70 @@ export default function Backtest() {
       setState({ ...working, stats: { ...working.stats } });
       setProgress({ done: i + 1, total: days.length });
 
-      collected.push({
-        name: dayFileName(day),
-        content: buildDayReport({
-          symbol,
-          day,
-          checkpoint: "23:59",
-          windowStart,
-          state: working,
-          triggers,
-          skipReason,
-          analyzedRows,
-          invalidRows,
-          lastRowDatetime,
-        }),
+      let report = buildDayReport({
+        symbol,
+        day,
+        checkpoint: "23:59",
+        windowStart,
+        state: working,
+        triggers,
+        skipReason,
+        analyzedRows,
+        invalidRows,
+        lastRowDatetime,
       });
+
+      // AI stage: the V2 verifier and/or the full Gemini <-> GPT debate, on the
+      // same day report + CSV window the local engine just analysed.
+      const aiSections: { title: string; body: string }[] = [];
+      const canRunAi = aiStage !== "off" && !skipReason && dayCsv !== null && triggers.length > 0;
+      if (aiStage !== "off" && !canRunAi) {
+        addLog(`${day}: AI stage skipped — no PASS setups or no usable data for this day.`);
+      }
+
+      if (canRunAi && (aiStage === "verifier" || aiStage === "both")) {
+        try {
+          addLog(`${day}: running V2 verifier / picker…`);
+          const outcome = await runVerifier({ data: { scoutData: report, ohlcCsv: dayCsv ?? "" } });
+          aiSections.push({
+            title: `V2 VERIFIER VERDICT (${outcome.provider} · ${outcome.model})`,
+            body: outcome.warnings.length
+              ? `${outcome.verdict}\n\nwarnings: ${outcome.warnings.join(" | ")}`
+              : outcome.verdict,
+          });
+          addLog(`${day}: verifier done via ${outcome.provider} · ${outcome.model}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          aiSections.push({ title: "V2 VERIFIER VERDICT", body: `FAILED: ${message}` });
+          addLog(`${day}: verifier failed — ${message}`);
+        }
+      }
+
+      if (canRunAi && (aiStage === "debate" || aiStage === "both")) {
+        try {
+          addLog(`${day}: running Gemini ↔ GPT debate…`);
+          const debate = await runDebate({
+            symbol,
+            range: `${windowStart} → ${day}`,
+            ohlcCsv: dayCsv ?? "",
+            summaryFields: report,
+            onLog: (message) => addLog(`${day}: ${message}`),
+          });
+          aiSections.push({
+            title: `GEMINI ↔ GPT DEBATE (${debate.status}${debate.agreed ? " · agreed" : ""})`,
+            body: `${debate.summary}\n\n--- FULL TRANSCRIPT ---\n${debate.transcript}`,
+          });
+          addLog(`${day}: debate finished — ${debate.status}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          aiSections.push({ title: "GEMINI ↔ GPT DEBATE", body: `FAILED: ${message}` });
+          addLog(`${day}: debate failed — ${message}`);
+        }
+      }
+
+      report = appendAiSections(report, aiSections);
+
+      collected.push({ name: dayFileName(day), content: report });
     }
 
     setCurrentDay(null);
@@ -243,7 +310,11 @@ export default function Backtest() {
             <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
               <span
                 className={`size-2.5 rounded-full ${
-                  isRunning ? "animate-pulse bg-warning" : zip ? "bg-success" : "bg-muted-foreground"
+                  isRunning
+                    ? "animate-pulse bg-warning"
+                    : zip
+                      ? "bg-success"
+                      : "bg-muted-foreground"
                 }`}
                 aria-hidden
               />
@@ -300,6 +371,30 @@ export default function Backtest() {
                 onChange={(event) => setToDate(event.target.value)}
               />
             </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-3">
+              <Label className="text-[11px] uppercase tracking-wide">AI stage per day</Label>
+              <Select
+                value={aiStage}
+                onValueChange={(value) => setAiStage(value as AiStage)}
+                disabled={isRunning}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["verifier", "debate", "both", "off"] as AiStage[]).map((stage) => (
+                    <SelectItem key={stage} value={stage}>
+                      {AI_STAGE_LABELS[stage]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                The verifier runs on every day that produced PASS setups and its verdict is written
+                into that day&apos;s report. The debate is much slower — it streams a full Gemini ↔
+                GPT round per day.
+              </p>
+            </div>
           </div>
 
           <p className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground">
@@ -309,7 +404,11 @@ export default function Backtest() {
           </p>
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={handleRun} disabled={isRunning || days.length === 0} className="flex-1">
+            <Button
+              onClick={handleRun}
+              disabled={isRunning || days.length === 0}
+              className="flex-1"
+            >
               {isRunning ? (
                 <>
                   <Loader2 size={14} className="animate-spin" /> Running {currentDay ?? ""}

@@ -60,8 +60,10 @@ export const liquiditySweep: StrategyCheck = {
         }
         const entry = c.close!;
         const sl = extreme + 0.1 * atrValue;
-        const tp = targetBelow(ctx, i, entry) ?? entry - 3 * atrValue;
-        if (!(tp < entry)) return fail("no structure target below the reclaim close");
+        // TP rule: nearest opposing swing beyond the entry. No synthetic fallback.
+        const tp = targetBelow(ctx, i, entry);
+        if (tp === undefined || !(tp < entry))
+          return fail("no opposing swing below the reclaim close");
         consume(ctx, ID, levelKey("high", pivot.price));
         return pass(
           `swept swing high ${pivot.price.toFixed(3)} (${sweep.datetime}) and reclaimed below it`,
@@ -92,8 +94,10 @@ export const liquiditySweep: StrategyCheck = {
         }
         const entry = c.close!;
         const sl = extreme - 0.1 * atrValue;
-        const tp = targetAbove(ctx, i, entry) ?? entry + 3 * atrValue;
-        if (!(tp > entry)) return fail("no structure target above the reclaim close");
+        // TP rule: nearest opposing swing beyond the entry. No synthetic fallback.
+        const tp = targetAbove(ctx, i, entry);
+        if (tp === undefined || !(tp > entry))
+          return fail("no opposing swing above the reclaim close");
         consume(ctx, ID, levelKey("low", pivot.price));
         return pass(
           `swept swing low ${pivot.price.toFixed(3)} (${sweep.datetime}) and reclaimed above it`,

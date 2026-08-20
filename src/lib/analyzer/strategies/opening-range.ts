@@ -1,5 +1,16 @@
 import { openingRangeFor } from "../daily";
-import { at, closedBeyond, fail, isAtr, pass, requireAtr, reliable, valid } from "./util";
+import {
+  at,
+  closedBeyond,
+  fail,
+  isAtr,
+  pass,
+  requireAtr,
+  reliable,
+  targetAbove,
+  targetBelow,
+  valid,
+} from "./util";
 import type { StrategyCheck } from "../types";
 
 const RETEST_TOLERANCE_ATR = 0.15;
@@ -61,8 +72,11 @@ export const openingRange: StrategyCheck = {
       const sl = up
         ? Math.min(c.low!, boundary) - 0.1 * atrValue
         : Math.max(c.high!, boundary) + 0.1 * atrValue;
-      const measured = range.high - range.low;
-      const tp = up ? entry + measured : entry - measured;
+      // TP rule: nearest opposing swing beyond the entry, not a measured move.
+      const tp = up ? targetAbove(ctx, i, entry) : targetBelow(ctx, i, entry);
+      if (tp === undefined || (up ? !(tp > entry) : !(tp < entry))) {
+        return fail("no opposing swing beyond the retest close");
+      }
       return pass(
         `${range.session} opening range breakout ${up ? "above" : "below"} ${boundary.toFixed(3)} with shallow retest`,
         up ? "long" : "short",
