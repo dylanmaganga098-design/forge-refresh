@@ -39,7 +39,6 @@ const AI_STAGE_LABELS: Record<AiStage, string> = {
   off: "Local engine only",
 };
 
-
 function inIframe(): boolean {
   try {
     return window.self !== window.top;
@@ -83,7 +82,6 @@ export default function Backtest() {
   const stopRef = useRef(false);
   const keyIndexRef = useRef(0);
 
-
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev.slice(-400), `${new Date().toLocaleTimeString()}  ${msg}`]);
   };
@@ -117,7 +115,9 @@ export default function Backtest() {
     const working: BacktestState = emptyState(symbol);
     setState(working);
 
-    addLog(`Auto-Backtest ${symbol} | ${days[0]} → ${days[days.length - 1]} (${days.length} day(s))`);
+    addLog(
+      `Auto-Backtest ${symbol} | ${days[0]} → ${days[days.length - 1]} (${days.length} day(s))`,
+    );
     addLog(
       `Each day is analysed on its own one-month window of 30M candles — AI stage: ${AI_STAGE_LABELS[aiStage]}.`,
     );
@@ -310,7 +310,11 @@ export default function Backtest() {
             <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
               <span
                 className={`size-2.5 rounded-full ${
-                  isRunning ? "animate-pulse bg-warning" : zip ? "bg-success" : "bg-muted-foreground"
+                  isRunning
+                    ? "animate-pulse bg-warning"
+                    : zip
+                      ? "bg-success"
+                      : "bg-muted-foreground"
                 }`}
                 aria-hidden
               />
@@ -393,7 +397,6 @@ export default function Backtest() {
             </div>
           </div>
 
-
           <p className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground">
             {days.length === 0
               ? "From date must be on or before the To date."
@@ -401,7 +404,11 @@ export default function Backtest() {
           </p>
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={handleRun} disabled={isRunning || days.length === 0} className="flex-1">
+            <Button
+              onClick={handleRun}
+              disabled={isRunning || days.length === 0}
+              className="flex-1"
+            >
               {isRunning ? (
                 <>
                   <Loader2 size={14} className="animate-spin" /> Running {currentDay ?? ""}

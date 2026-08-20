@@ -50,8 +50,7 @@ export const swingFailure: StrategyCheck = {
       const sl = c.high! + 0.1 * atrValue;
       // TP rule: nearest opposing swing beyond the entry. No synthetic fallback.
       const tp = targetBelow(ctx, i, entry);
-      if (tp === undefined || !(tp < entry))
-        return fail("no opposing swing below the SFP close");
+      if (tp === undefined || !(tp < entry)) return fail("no opposing swing below the SFP close");
       consume(ctx, ID, levelKey("high", pivot.price));
       return pass(
         `single-bar swing failure at untested high ${pivot.price.toFixed(3)}`,
@@ -78,8 +77,7 @@ export const swingFailure: StrategyCheck = {
       const sl = c.low! - 0.1 * atrValue;
       // TP rule: nearest opposing swing beyond the entry. No synthetic fallback.
       const tp = targetAbove(ctx, i, entry);
-      if (tp === undefined || !(tp > entry))
-        return fail("no opposing swing above the SFP close");
+      if (tp === undefined || !(tp > entry)) return fail("no opposing swing above the SFP close");
       consume(ctx, ID, levelKey("low", pivot.price));
       return pass(
         `single-bar swing failure at untested low ${pivot.price.toFixed(3)}`,
